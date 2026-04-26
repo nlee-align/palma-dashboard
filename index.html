@@ -673,7 +673,7 @@ body{font-family:'Jost',sans-serif;background:var(--pearl);color:var(--ink);min-
     <div style="padding:20px 28px;">
 
       <!-- ── Tomorrow's Tours — TOP OF LOG ── -->
-      <div class="tours-module" style="margin-top:0;margin-bottom:20px;">
+      <div class="tours-module" style="margin-top:0;margin-bottom:12px;">
         <div class="tours-module-header">
           <div class="tours-module-title"><div class="tours-module-icon">🗓</div>Tomorrow's Private Tours</div>
           <span class="tours-count-badge" id="toursBadge">0 Scheduled</span>
@@ -707,6 +707,27 @@ body{font-family:'Jost',sans-serif;background:var(--pearl);color:var(--ink);min-
         <ul class="tours-list" id="toursList"><li class="tours-empty">No tours logged yet for tomorrow.</li></ul>
         <div class="tours-divider"></div>
         <div class="tours-summary-line" id="toursSummaryLine">Add tomorrow's confirmed showings above — the team summary will appear here.</div>
+      </div>
+
+      <!-- ── Concierge Passdowns — TOP OF LOG ── -->
+      <div class="passdown-section" style="margin-bottom:20px;">
+        <div class="passdown-header">
+          <div class="passdown-title"><div class="passdown-title-icon">📋</div>Concierge Passdowns</div>
+          <span class="passdown-badge" id="passdownBadge">0 Open</span>
+        </div>
+        <div style="font-size:11px;color:var(--ink-m);margin-bottom:11px;line-height:1.5;">Items logged here carry over to the next day until resolved. <strong style="color:var(--frond);">All open passdowns must be checked off before submitting the daily report.</strong></div>
+        <div class="passdown-input-row">
+          <input class="form-input" id="pd-text" placeholder="Describe the passdown item…" onkeydown="if(event.key==='Enter')addPassdown()">
+          <select class="form-select" id="pd-prop" style="width:auto;padding:5px 9px;font-size:11px;"><option value="north">North</option><option value="south">South</option><option value="both">Both</option></select>
+          <select class="form-select" id="pd-priority" style="width:auto;padding:5px 9px;font-size:11px;"><option value="normal">Normal</option><option value="urgent">Urgent</option></select>
+          <button class="passdown-add-btn" onclick="addPassdown()">+ Add</button>
+        </div>
+        <ul class="passdown-list" id="passdownList"><li class="passdown-empty">No open passdowns — items added here carry over each day until resolved.</li></ul>
+        <div class="passdown-divider"></div>
+        <div class="passdown-submit-gate" id="passdownGate">
+          <div class="psg-icon">⚠️</div>
+          <div class="psg-text"><strong id="passdownGateMsg">Check off all open passdowns before saving today's report.</strong> Unresolved items will automatically carry over to tomorrow's log.</div>
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
@@ -765,25 +786,6 @@ body{font-family:'Jost',sans-serif;background:var(--pearl);color:var(--ink);min-
             <ul class="passdown-list" id="moveEventsList"><li class="passdown-empty">No move events logged today.</li></ul>
           </div>
 
-          <div class="passdown-section" style="margin-top:14px;">
-            <div class="passdown-header">
-              <div class="passdown-title"><div class="passdown-title-icon">📋</div>Concierge Passdowns</div>
-              <span class="passdown-badge" id="passdownBadge">0 Open</span>
-            </div>
-            <div style="font-size:11px;color:var(--ink-m);margin-bottom:11px;line-height:1.5;">Items logged here carry over to the next day until resolved. <strong style="color:var(--frond);">All open passdowns must be checked off before submitting the daily report.</strong></div>
-            <div class="passdown-input-row">
-              <input class="form-input" id="pd-text" placeholder="Describe the passdown item…" onkeydown="if(event.key==='Enter')addPassdown()">
-              <select class="form-select" id="pd-prop" style="width:auto;padding:5px 9px;font-size:11px;"><option value="north">North</option><option value="south">South</option><option value="both">Both</option></select>
-              <select class="form-select" id="pd-priority" style="width:auto;padding:5px 9px;font-size:11px;"><option value="normal">Normal</option><option value="urgent">Urgent</option></select>
-              <button class="passdown-add-btn" onclick="addPassdown()">+ Add</button>
-            </div>
-            <ul class="passdown-list" id="passdownList"><li class="passdown-empty">No open passdowns — items added here carry over each day until resolved.</li></ul>
-            <div class="passdown-divider"></div>
-            <div class="passdown-submit-gate" id="passdownGate">
-              <div class="psg-icon">⚠️</div>
-              <div class="psg-text"><strong id="passdownGateMsg">Check off all open passdowns before saving today's report.</strong> Unresolved items will automatically carry over to tomorrow's log.</div>
-            </div>
-          </div>
         </div>
         <div>
           <div class="section-hdr" style="margin-bottom:14px;">
