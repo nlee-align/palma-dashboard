@@ -574,41 +574,46 @@ body{font-family:'Jost',sans-serif;background:var(--pearl);color:var(--ink);min-
 
 /* ── PRINT / PDF EXPORT STYLES ── */
 @media print {
-  /* Hide everything by default */
-  body > * { display: none !important; }
+  /* Hide all chrome — only the active subview prints */
+  .topnav, .prop-bar, .subnav, .export-bar,
+  .modal-overlay { display: none !important; }
 
-  /* Show the internal view wrapper */
-  #view-internal { display: block !important; }
-
-  /* Hide all subviews, then show only the print target */
-  #view-internal .subview { display: none !important; }
-  #view-internal [data-print-target="true"] {
+  /* Hide all subviews except the print target */
+  .subview { display: none !important; }
+  .subview[data-print-target="true"] {
     display: block !important;
-    visibility: visible !important;
-    position: static !important;
-    width: 100% !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  #view-internal [data-print-target="true"] * { visibility: visible !important; }
 
-  /* Hide chrome within the printed element */
-  .topnav, .prop-bar, .subnav { display: none !important; }
+  /* Hide interactive chrome within printed element */
   [data-print-target="true"] .toolbar { display: none !important; }
   [data-print-target="true"] .btn,
   [data-print-target="true"] button { display: none !important; }
+  [data-print-target="true"] .passdown-input-row,
+  [data-print-target="true"] .tours-add-row,
+  [data-print-target="true"] .tours-add-btn,
+  [data-print-target="true"] .tour-delete,
+  [data-print-target="true"] .passdown-delete,
+  [data-print-target="true"] .tour-delete { display: none !important; }
 
-  /* Weekly report layout */
-  [data-print-target="true"] .report-body { display: grid !important; grid-template-columns: 1fr !important; }
-  [data-print-target="true"] .main-col { border: none !important; padding: 8px 0 !important; }
-  [data-print-target="true"] .side-col { display: none !important; }
-  [data-print-target="true"] .week-summary-hdr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  [data-print-target="true"] .section { break-inside: avoid; margin-bottom: 16px; }
-  [data-print-target="true"] .trend-grid { grid-template-columns: 1fr 1fr !important; }
+  /* Daily log print layout */
+  #sub-daily[data-print-target="true"] { padding: 16px !important; }
+  #sub-daily[data-print-target="true"] .mic-input { border: none !important; font-weight: 600; }
+  #sub-daily[data-print-target="true"] .daily-notes { border: none !important; resize: none; }
+  #sub-daily[data-print-target="true"] .form-input { border: none !important; }
 
-  /* Narrative layout */
-  [data-print-target="true"] .narrative-box { break-inside: avoid; }
-  [data-print-target="true"] .narrative-actions { display: none !important; }
+  /* Weekly report print layout */
+  #sub-weekly[data-print-target="true"] .report-body { display: block !important; }
+  #sub-weekly[data-print-target="true"] .main-col { border: none !important; }
+  #sub-weekly[data-print-target="true"] .side-col { display: none !important; }
+  #sub-weekly[data-print-target="true"] .week-summary-hdr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #sub-weekly[data-print-target="true"] .section { break-inside: avoid; margin-bottom: 16px; }
+  #sub-weekly[data-print-target="true"] .trend-grid { grid-template-columns: 1fr 1fr !important; }
+
+  /* Narrative print layout */
+  #sub-narrative[data-print-target="true"] .narrative-box { break-inside: avoid; }
+  #sub-narrative[data-print-target="true"] .narrative-actions { display: none !important; }
 
   @page { margin: 0.5in; size: letter portrait; }
 }
@@ -662,6 +667,8 @@ body{font-family:'Jost',sans-serif;background:var(--pearl);color:var(--ink);min-
       <div class="tsep"></div>
       <button class="btn terra" onclick="saveDailyEntry()">Save Entry</button>
       <button class="btn" onclick="clearDailyForm()">Clear</button>
+      <div class="tsep"></div>
+      <button class="btn" onclick="exportDailyPDF()">⬇ Export PDF</button>
     </div>
     <div style="padding:20px 28px;">
 
@@ -2183,27 +2190,43 @@ function runPrintExport(elId, btnSelector){
   const btn = document.querySelector(btnSelector);
   const orig = btn ? btn.textContent : '';
   if(btn){btn.textContent='Preparing…';btn.style.opacity='0.6';btn.style.pointerEvents='none';}
+
+  // Switch to the target tab so it's fully rendered in the DOM
+  const wasActiveId = document.querySelector('.subview.active')?.id;
+  document.querySelectorAll('.subview').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.stab').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(elId);
-  // Force element visible regardless of subview state
+  el.classList.add('active');
+
+  // Mark as print target
   el.setAttribute('data-print-target','true');
-  el.style.setProperty('display','block','important');
-  // Two rAFs ensure the browser fully repaints before print dialog opens
+
+  // Three rAFs: switch tab → layout → paint → print
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
-      window.print();
-      const cleanup = ()=>{
-        el.removeAttribute('data-print-target');
-        el.style.removeProperty('display');
-        if(btn){btn.textContent=orig;btn.style.opacity='';btn.style.pointerEvents='';}
-        window.removeEventListener('afterprint', cleanup);
-      };
-      window.addEventListener('afterprint', cleanup);
-      // Fallback in case afterprint doesn't fire (some mobile browsers)
-      setTimeout(cleanup, 5000);
+      requestAnimationFrame(()=>{
+        window.print();
+        const cleanup = ()=>{
+          el.removeAttribute('data-print-target');
+          // Restore previous tab
+          if(wasActiveId && wasActiveId !== elId){
+            el.classList.remove('active');
+            const prev = document.getElementById(wasActiveId);
+            if(prev) prev.classList.add('active');
+            const prevTab = document.querySelector(`[data-tab="${wasActiveId.replace('sub-','')}"]`);
+            if(prevTab) prevTab.classList.add('active');
+          }
+          if(btn){btn.textContent=orig;btn.style.opacity='';btn.style.pointerEvents='';}
+          window.removeEventListener('afterprint', cleanup);
+        };
+        window.addEventListener('afterprint', cleanup);
+        setTimeout(cleanup, 5000);
+      });
     });
   });
 }
 function exportWeeklyPDF(){ runPrintExport('sub-weekly','[onclick="exportWeeklyPDF()"]'); }
+function exportDailyPDF(){ runPrintExport('sub-daily','[onclick="exportDailyPDF()"]'); }
 function exportNarrativePDF(){ runPrintExport('sub-narrative','[onclick="exportNarrativePDF()"]'); }
 
 
