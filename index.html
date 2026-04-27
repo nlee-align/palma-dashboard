@@ -8,6 +8,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
 :root{
   --frond:#40493C;--frond-l:#5A6655;--frond-d:#2C332A;--accent:#D7D2CB;--accent-l:#EAE6E1;--pearl:#FAF1EE;--pearl-d:#F0E8E3;--ink:#010203;--ink-l:#3A3A3A;--ink-m:#7A7A72;--white:#FFFFFF;--warm:#FDFAF8;
@@ -1626,8 +1629,130 @@ function buildSnapshot(){
   };
 }
 
-function loadState(){try{const s=JSON.parse(localStorage.getItem('palma_dashboard_v1')||'{}');if(s.dailyEntries)state.dailyEntries=s.dailyEntries;if(s.weekRange)state.weekRange=s.weekRange;if(s.weeklyKPIs)state.weeklyKPIs=s.weeklyKPIs;if(s.narratives)state.narratives=s.narratives;if(s.archivedWeeks)state.archivedWeeks=s.archivedWeeks;if(s.reportStatus)state.reportStatus=s.reportStatus;if(s.passdowns)state.passdowns=s.passdowns;if(s.tomorrowTours)state.tomorrowTours=s.tomorrowTours;if(s.moveEvents)state.moveEvents=s.moveEvents;if(s.pqLeads)state.pqLeads=s.pqLeads;}catch(e){}}
-function saveState(){try{localStorage.setItem('palma_dashboard_v1',JSON.stringify({dailyEntries:state.dailyEntries,weekRange:state.weekRange,weeklyKPIs:state.weeklyKPIs,narratives:state.narratives,archivedWeeks:state.archivedWeeks,reportStatus:state.reportStatus,passdowns:state.passdowns,tomorrowTours:state.tomorrowTours,moveEvents:state.moveEvents,pqLeads:state.pqLeads}));}catch(e){}}
+// ══════════════════════════════════════════
+// FIREBASE CONFIG & SYNC
+// ══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyBtjGoRZvi6F3ZM0NVOVNdU3CEoHykXY-k",
+  authDomain: "palma-dashboard.firebaseapp.com",
+  databaseURL: "https://palma-dashboard-default-rtdb.firebaseio.com",
+  projectId: "palma-dashboard",
+  storageBucket: "palma-dashboard.firebasestorage.app",
+  messagingSenderId: "393804398081",
+  appId: "1:393804398081:web:a48422d33fe1583f5e8a00"
+};
+
+let db = null;
+try {
+  // Prevent duplicate app error if script reloads
+  if(!firebase.apps.length){ firebase.initializeApp(firebaseConfig); }
+  db = firebase.database();
+} catch(e) {
+  console.warn('Firebase init failed:', e);
+}
+
+// Keys synced to Firebase (shared across all users)
+const FB_SYNCED = ['dailyEntries','passdowns','tomorrowTours','moveEvents','weeklyKPIs','weekRange','reportStatus','pqLeads'];
+// Keys kept only in localStorage (per-user preferences / narratives)
+const LOCAL_ONLY = ['narratives','archivedWeeks'];
+
+// Connection status indicator
+function setConnectionStatus(online){
+  let dot = document.getElementById('fb-status-dot');
+  if(!dot){
+    dot = document.createElement('div');
+    dot.id = 'fb-status-dot';
+    dot.style.cssText = 'position:fixed;bottom:14px;right:14px;display:flex;align-items:center;gap:6px;font-size:10px;font-family:"DM Mono",monospace;color:var(--ink-m);background:white;border:1px solid var(--border);border-radius:20px;padding:4px 10px;z-index:9999;box-shadow:0 1px 6px rgba(0,0,0,0.08);';
+    document.body.appendChild(dot);
+  }
+  dot.innerHTML = `<div style="width:7px;height:7px;border-radius:50%;background:${online?'var(--green)':'var(--amber)'};flex-shrink:0;"></div>${online?'Live — synced':'Reconnecting…'}`;
+}
+
+// Save a single key — Firebase + localStorage fallback
+function saveKey(key, value){
+  try {
+    const local = JSON.parse(localStorage.getItem('palma_dashboard_v1')||'{}');
+    local[key] = value;
+    localStorage.setItem('palma_dashboard_v1', JSON.stringify(local));
+  } catch(e){}
+  if(db && FB_SYNCED.includes(key)){
+    db.ref('palma/' + key).set(value).catch(e => console.warn('Firebase write failed:', e));
+  }
+}
+
+// saveState — writes all keys
+function saveState(){
+  FB_SYNCED.forEach(key => saveKey(key, state[key]));
+  LOCAL_ONLY.forEach(key => {
+    try {
+      const local = JSON.parse(localStorage.getItem('palma_dashboard_v1')||'{}');
+      local[key] = state[key];
+      localStorage.setItem('palma_dashboard_v1', JSON.stringify(local));
+    } catch(e){}
+  });
+}
+
+// loadState — loads from localStorage immediately for instant paint
+function loadState(){
+  try {
+    const s = JSON.parse(localStorage.getItem('palma_dashboard_v1')||'{}');
+    if(s.dailyEntries)  state.dailyEntries  = s.dailyEntries;
+    if(s.weekRange)     state.weekRange     = s.weekRange;
+    if(s.weeklyKPIs)    state.weeklyKPIs    = s.weeklyKPIs;
+    if(s.narratives)    state.narratives    = s.narratives;
+    if(s.archivedWeeks) state.archivedWeeks = s.archivedWeeks;
+    if(s.reportStatus)  state.reportStatus  = s.reportStatus;
+    if(s.passdowns)     state.passdowns     = s.passdowns;
+    if(s.tomorrowTours) state.tomorrowTours = s.tomorrowTours;
+    if(s.moveEvents)    state.moveEvents    = s.moveEvents;
+    if(s.pqLeads)       state.pqLeads       = s.pqLeads;
+  } catch(e){}
+}
+
+// initFirebaseListeners — called after DOM + all functions are ready
+function initFirebaseListeners(){
+  if(!db){ console.warn('Firebase not available — running on localStorage only.'); setConnectionStatus(false); return; }
+
+  // Connection status
+  db.ref('.info/connected').on('value', snap => setConnectionStatus(!!snap.val()));
+
+  const renderMap = {
+    dailyEntries:  () => { renderDailyEntries(); updateRunningTotals(); },
+    passdowns:     () => { renderPassdowns(); },
+    tomorrowTours: () => { renderTours(); },
+    moveEvents:    () => { renderMoveEvents(); },
+    pqLeads:       () => { renderPqLeads(); },
+    weeklyKPIs:    () => {},
+    weekRange:     () => {
+      if(state.weekRange){
+        const wr = document.getElementById('wshWeekRange'); if(wr) wr.textContent = state.weekRange;
+        const kb = document.getElementById('kpiBadge');     if(kb) kb.textContent = state.weekRange;
+        const wb = document.getElementById('weekBadge');    if(wb) wb.textContent = 'Week of ' + state.weekRange;
+      }
+    },
+    reportStatus: () => {
+      const pill = document.getElementById('reportStatusPill');
+      if(pill){ pill.textContent = state.reportStatus === 'published' ? 'Published' : 'Draft'; pill.className = 'status-pill ' + (state.reportStatus === 'published' ? 'sp-published' : 'sp-draft'); }
+    }
+  };
+
+  FB_SYNCED.forEach(key => {
+    db.ref('palma/' + key).on('value', snap => {
+      try {
+        const val = snap.val();
+        if(val === null) return; // Nothing written yet — keep local state
+        if(JSON.stringify(state[key]) === JSON.stringify(val)) return; // No change
+        state[key] = val;
+        // Mirror to localStorage
+        const local = JSON.parse(localStorage.getItem('palma_dashboard_v1')||'{}');
+        local[key] = val;
+        localStorage.setItem('palma_dashboard_v1', JSON.stringify(local));
+        // Re-render affected UI
+        if(renderMap[key]) renderMap[key]();
+      } catch(e){ console.warn('Firebase listener error for', key, e); }
+    });
+  });
+}
 function setMainView(v){state.currentView=v;document.getElementById('view-internal').classList.toggle('active',v==='internal');document.getElementById('view-client').classList.toggle('active',v==='client');document.getElementById('vt-internal').classList.toggle('active',v==='internal');document.getElementById('vt-client').classList.toggle('active',v==='client');if(v==='client')syncClientView();}
 function setTopProp(p){state.currentProp=p;document.querySelectorAll('.nav-ptab').forEach(t=>t.classList.remove('active'));event.target.classList.add('active');setPropTab(p);}
 function setPropTab(p){state.currentProp=p;document.querySelectorAll('.prop-tab').forEach(t=>{t.classList.toggle('active',t.dataset.prop===p);});const name=p==='north'?'North':p==='south'?'South':'Portfolio';document.getElementById('wshPropName').textContent=name;}
@@ -2349,6 +2474,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   syncNarrativeStatus();
   if(state.weekRange)document.getElementById('wshWeekRange').textContent=state.weekRange;
   syncDailyActivityClient();
+  // Start Firebase real-time sync
+  initFirebaseListeners();
   document.querySelectorAll('.modal-overlay').forEach(ov=>{ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('active');});});
 });
 </script>
